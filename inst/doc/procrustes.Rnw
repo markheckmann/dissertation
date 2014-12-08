@@ -1,0 +1,160 @@
+
+%\VignetteEngine{knitr::knitr}
+%\VignetteIndexEntry{Use mat2tex with knitr and .Rnw files}
+
+\documentclass[article,nojss]{jss}
+
+\usepackage{amsmath}
+\usepackage{color}
+\usepackage{relsize}  % for mathsmaller
+
+%\usepackage[urlcolor=blue, colorlinks=true, pdfborder={0 0 0}]{hyperref}
+
+% \title{\texttt{mat2tex} R package \linebreak \linebreak 
+%         \normalsize{Version 0.1} \linebreak \linebreak 
+%         \url{https://github.com/markheckmann/mat2tex}}
+% \author{Mark Heckmann}
+% \date{\today}
+
+\parindent0mm
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% User specified LaTeX commands.
+\newcommand{\di}{\textbf{\textsf{diagram}}\xspace}
+\newcommand{\T}{{ ^{\mathsmaller T} }}
+\newcommand{\B}[1] { \mathbf{#1} }  % bold math: to make it easy to change from \mathbf to \bm etc.
+\newcommand{\MN}[1]{ \marginnote{\footnotesize \textcolor{red}{#1} } }  % für korrekturfahnen
+
+\title{\proglang{R} package \pkg{procrustes}: Several algorithms from the procrustes family of transformations}
+
+\Plaintitle{R package procrustes: Several algorithms from the procrustes family of transformations}
+
+\Keywords{procrustes, configurations, fitting, R}
+
+\Plainkeywords{procrustes, configurations, fitting, R}
+
+
+\author{Mark Heckmann\\
+University of Bremen, Germany \\
+\normalsize{Version 0.1} \\ 
+\url{https://github.com/markheckmann/procrustes}
+}
+
+\Plainauthor{Mark Heckmann}
+
+\Abstract{This document describes several features of the \pkg{procrustes} package.
+The procrustes package was written to facilitate my PhD work which includes several types of procrustes transformations.
+The available package lacked some features I needed, so I implemented them myself.
+}
+
+%% The address of (at least) one author should be given
+%% in the following format:
+\Address{
+  Mark Heckmann\\
+  University of Bremen, Germany\\
+  E-mail: \email{heckmann@uni-bremen.de}\\
+  R-blog: \url{http://ryouready.wordpress.com}\\
+  Website: \url{http://www.markheckmann.de}\\
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+
+\begin{document}
+ 
+\maketitle
+
+<<setup, echo=FALSE, warning=FALSE, message=FALSE>>=
+library(mat2tex)
+
+# house shapes
+draw_configuration <- function(m, ...) {
+  x <- rbind(m, head(m, 1))
+  polygon(x, ...)
+}
+
+@
+
+
+\section{Quick start}
+
+To use the \verb+procrustes+ package, install 
+
+<<eval=FALSE>>=
+library(devtools)
+install_github("procrustes", "markheckmann")
+@
+
+and load it.
+
+<<eval=FALSE>>=
+library(procrustes)
+@
+
+
+
+
+\section{Orthogonal procrustes analysis}
+
+Mathematically a configuration is represented by a $m \times n$ matrix, where each row represents a point and each column a dimension. Let the matrix $\B{A}$ represent a small configuration with three points in $\mathbf{R}^2$. 
+
+<<echo=FALSE, results='asis'>>=
+opt <- mat2tex_options(digits=0)  
+A <- matrix(c(0,1,-1,-1,1,-0), by=TRUE, 3)
+xx("\\B{A} = ", A, e=1)
+@
+
+
+The standard orthogonal procrustes analysis (OPA) has the goal to fit a configuration $\B{A}$ to a another configuration $\B{B}$ as closely as possible by scaling, rotating and reflecting, and translating configuration $\B{A}$. 
+
+\begin{equation} \label{eq:opa-formulation}
+  \B{B} = \underset{ \text{scaling} }{c} 
+           \B{A} \underset{ \substack{\text{rotation} + \\ \text{reflection}} }{ \B{Q} } + 
+           \underset{ \text{translation}}{ J\gamma\T } +
+           \underset{ \text{error}}{ \B{Q} }
+\end{equation}
+
+Closeness is measured as the sum of squared distances between the row vectors (homologous points) of the two configurations. So the goal is to minimize the function
+
+\begin{equation} 
+f(c, \B{Q}, \gamma) = tr\; \mathbf{E\T E} 
+\end{equation}
+
+with respect to the transformations that are allowed. The function \texttt{opa} performs this type of analysis. \texttt{opa} also allows to one apply a subset of the possible transformations.\footnote{One of the main reasons to write this package was that I needed a function where I can do this.} The following subsets are allowed:
+
+\begin{enumerate}
+  \item Scaling only $f(c)$
+  \item Rotation only $f(\B{Q})$
+  \item Rotation and scaling $f(c, \B{Q})$
+  \item Rotation, scaling and translation $f(c, \B{Q}, \gamma)$
+\end{enumerate}
+
+The solution to these problems are special cases of the generalized solution to the orthogonal procrustes problem as outlined by \cite{schonemann_fitting_1970}. 
+
+
+\section{Scaling only}
+
+This is a very unsual case, as it only makes sense if the configureations already have a natural center. The formulation is.
+
+\begin{equation} \label{eq:opa-formulation}
+  \B{B} = \underset{ \text{scaling} }{c}  \B{A} + \B{E} 
+\end{equation}
+
+
+The solution to this problem is.
+All the three seperate transformations given \eqref{eq:opa-formulation} can be switched on or off. This was 
+
+ 
+
+
+\section{Basic transformations}
+
+
+\subsection{Translation}
+
+
+%\bibliographystyle{plain}
+\bibliography{literature}
+
+
+\end{document}

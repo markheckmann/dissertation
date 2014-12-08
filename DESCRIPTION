@@ -1,0 +1,11 @@
+Package: dissertation
+Maintainer: Mark Heckmann <heckmann.mark@gmail.com>
+License: GPL (>=2)
+Title: Functions used in dissertation
+Type: Package
+LazyLoad: yes
+Author: Mark Heckmann
+Description: Several functions used in my PhD thesis
+Version: 0.0.9001
+Date: 2014-10-16
+VignetteBuilder: knitr

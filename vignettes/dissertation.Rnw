@@ -1,0 +1,341 @@
+
+
+%\VignetteEngine{knitr::knitr}
+%\VignetteIndexEntry{Use mat2tex with knitr and .Rnw files}
+
+\documentclass[article,nojss]{jss}
+
+\usepackage{amsmath}
+\usepackage{color}
+\usepackage{relsize}  % for mathsmaller
+\usepackage{pbox}
+\usepackage[utf8]{inputenc}
+
+%\usepackage[urlcolor=blue, colorlinks=true, pdfborder={0 0 0}]{hyperref}
+
+% \title{\texttt{mat2tex} R package \linebreak \linebreak 
+%         \normalsize{Version 0.1} \linebreak \linebreak 
+%         \url{https://github.com/markheckmann/mat2tex}}
+% \author{Mark Heckmann}
+% \date{\today}
+
+\parindent0mm
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% User specified LaTeX commands.
+\newcommand{\di}{\textbf{\textsf{diagram}}\xspace}
+\newcommand{\T}{{ ^{\mathsmaller T} }}
+\newcommand{\B}[1] { \mathbf{#1} }  % bold math: to make it easy to change from \mathbf to \bm etc.
+\newcommand{\MN}[1]{ \marginnote{\footnotesize \textcolor{red}{#1} } }  % für korrekturfahnen
+
+\title{\proglang{R} package \pkg{procrustes}: Several algorithms from the procrustes family of transformations}
+
+\Plaintitle{R package procrustes: Several algorithms from the procrustes family of transformations}
+
+\Keywords{procrustes, configurations, fitting, R}
+
+\Plainkeywords{procrustes, configurations, fitting, R}
+
+
+\author{Mark Heckmann\\
+University of Bremen, Germany \\
+\normalsize{Version 0.1} \\ 
+\url{https://github.com/markheckmann/procrustes}
+}
+
+\Plainauthor{Mark Heckmann}
+
+\Abstract{This document describes several features of the \pkg{procrustes} package.
+The procrustes package was written to facilitate my PhD work which includes several types of procrustes transformations.
+The available package lacked some features I needed, so I implemented them myself.
+}
+
+%% The address of (at least) one author should be given
+%% in the following format:
+\Address{
+  Mark Heckmann\\
+  University of Bremen, Germany\\
+  E-mail: \email{heckmann@uni-bremen.de}\\
+  R-blog: \url{http://ryouready.wordpress.com}\\
+  Website: \url{http://www.markheckmann.de}\\
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+
+\begin{document}
+ 
+\maketitle
+
+<<setup, echo=FALSE, warning=FALSE, message=FALSE>>=
+library(mat2tex)
+library(procrustes)
+
+# house shapes
+draw_configuration <- function(m, ...) {
+  x <- rbind(m, head(m, 1))
+  polygon(x, ...)
+}
+
+@
+
+<<plot-models-function, echo=FALSE>>=
+
+# plotting function to display configurations
+plot_configs <- function(A, B, add="", sub="") 
+{
+  mx <- max(abs(rbind(A, B)))
+  lim <- c(-mx, mx) * 1.5  
+  
+  pch.A <- 16
+  pch.B <- 17
+  pch.A.att <- 15
+  pch.B.att <- 18  
+  cex <- 1.4
+  cex.labels <- 1.2
+  col.a <- 2
+  col.b <- 1
+  tl <- 1     # title line
+  tcex <- 1.4
+  
+  plot(NULL, xlim=lim, ylim=lim, asp=1, xlab="", ylab="", xaxt="n", yaxt="n")
+  title(sub=sub, line = tl, cex.sub=tcex)
+  abline(v=0, h=0, col="lightgrey")
+  points(A, pch=pch.A, col=col.a, cex=cex)
+  plot_centroid_star(A, centroid = F, col=col.a, lty=2)
+  labels <- as.expression(paste0(letters[1:3], add))
+  text(A, labels=labels, pos=1, cex=cex.labels, col=col.a)
+  #title(main = paste("RSS", round(rss_weighted(A, B)), 2))
+  
+  points(B, pch=pch.A.att, col=col.b, cex=cex)
+  #labels <- parse(text=paste0("b[", 1:3, "]"))
+  #text(B, labels=LETTERS[1:3], pos=1, cex=cex.labels, col=col.b)
+  plot_centroid_star(B, centroid = F, col=col.b, lty=2)
+  plot_rss(A, B, col = "grey", residuals = F)
+}
+@
+
+
+\section{Quick start}
+
+To use the \verb+procrustes+ package, install 
+
+<<eval=FALSE>>=
+library(devtools)
+install_github("markheckmann/procrustes")
+@
+
+and load it.
+
+<<eval=FALSE>>=
+library(procrustes)
+@
+
+
+
+\section{Orthogonal procrustes analysis}
+
+Mathematically a configuration is represented by a $m \times n$ matrix, where each row represents a point and each column a dimension. Let the matrix $\B{A}$ represent a small configuration with three points in $\mathbf{R}^2$. 
+
+<<echo=FALSE, results='asis'>>=
+opt <- mat2tex_options(digits=0)  
+#A <- matrix(c(0,1,-1,-1,1,0), by=TRUE, 3)
+#B <- matrix(c(.5,1,-1,-.5,.7,.2)*1.2, by=TRUE, 3)
+
+set.seed(3)
+A <- round(random_config(3), 1)
+Ac <- scale(A, scale=F)
+set.seed(1)
+B <- round(random_config(3), 1)
+B <- scale(B, scale=F) * 2
+# B <- B*2
+Bc <- scale(B, scale=F)
+
+#plot_configs(A, B)
+
+xx("\\B{A} = ", A, s(2), "\\B{B} = ", B, e=1, digits=1)
+@
+
+
+The standard orthogonal procrustes analysis (OPA) has the goal to fit a configuration $\B{A}$ to a another configuration $\B{B}$ as closely as possible by scaling, rotating and reflecting, and translating configuration $\B{A}$. 
+
+\begin{equation} \label{eq:opa-formulation}
+  \B{B} = \underset{ \text{scaling} }{c} 
+           \B{A} \underset{ \substack{\text{rotation} + \\ \text{reflection}} }{ \B{Q} } + 
+           \underset{ \text{translation}}{ J\gamma\T } +
+           \underset{ \text{error}}{ \B{E} }
+\end{equation}
+
+Closeness is measured as the sum of squared distances between the row vectors (homologous points) of the two configurations. So the goal is to minimize the function
+
+\begin{equation} 
+f(c, \B{Q}, \gamma) = tr\; \mathbf{E\T E} 
+\end{equation}
+
+with respect to the transformations that are allowed. The function \texttt{opa} performs this type of analysis. \texttt{opa} also allows to apply all combinations of the possible transformations.\footnote{One of the main reasons to write this package was that I needed a function where I can do this.} I.e. all three transformations given in \eqref{eq:opa-formulation} can be switched on or off seperately. The solution to these minimization-problems are special cases of the generalized solution to the orthogonal procrustes problem as outlined by \cite{schonemann_fitting_1970}. 
+
+
+\section{Models}
+
+\subsection{Scaling-only}
+
+This is a very unsual case, as it only makes sense if the configurations already have a natural center. This might be useful for free choice profiling data where the midpoint is used for centering. The formulation is
+
+\begin{equation} 
+  \B{B} = \underset{ \text{scaling} }{c}  \B{A} + \B{E} 
+\end{equation}
+
+Figure \ref{fig:opa-S} shows the centered matrices $\B{A}$ and $\B{B}$ before and after the scaling only procrustes.
+
+<<results='hide'>>=
+opa(A, B, model="S")
+@
+
+
+<<opa-S, echo=FALSE, fig.height=3.5, fig.cap="Isotropic scaling only. Configurations (a) before (b) after scaling.", fig.lp="fig:">>=
+par(mfrow=c(1,2), mar=c(4,3,1,1))
+plot_configs(Ac, Bc)
+p <- opa(Ac, Bc, model="S")
+Ahat <- p$Xhat
+plot_configs(Ahat, Bc, add="'")
+@
+
+
+\subsection{Rotation only}
+
+The solution to this problem for the general case can e.g. be found in \cite{schonemann_generalized_1966}.
+
+\begin{equation} 
+  \B{B} =  \B{A} \underset{ \substack{\text{rotation} + \\ \text{reflection}} }{ \B{Q} } 
+           \underset{ \text{error}}{ \B{E} }
+\end{equation}
+
+Figure \ref{fig:opa-R} shows the configurations before and after a rotation only transformation.
+
+<<results='hide'>>=
+opa(A, B, model="R")
+@
+
+
+<<opa-R, echo=FALSE, fig.height=3.5, fig.cap="Orthogonal rotation only. Configurations (a) before (b) after scaling.", fig.lp="fig:">>=
+par(mfrow=c(1,2), mar=c(4,3,1,1))
+plot_configs(A, B)
+p <- opa(A, B, model="R")
+Ahat <- p$Xhat
+plot_configs(Ahat, B, add="'")
+@
+
+
+
+\subsection{Scaling and rotation}
+
+This is a typical case for naturally centered data where the row points will be rotated orthogonally and fitted in length.
+
+\begin{equation} 
+  \B{B} = \underset{ \text{scaling} }{c} 
+           \B{A} \underset{ \substack{\text{rotation} + \\ \text{reflection}} }{ \B{Q} } + 
+           \underset{ \text{error}}{ \B{E} }
+\end{equation}
+
+Figure \ref{fig:opa-SR} shows the configurations before and after rotation and sclaing.
+
+<<results='hide'>>=
+opa(A, B, model="SR")
+@
+
+
+<<opa-SR, echo=FALSE, fig.height=3.5, fig.cap="Scaling and rotation. Configurations (a) before (b) after transformation.", fig.lp="fig:">>=
+par(mfrow=c(1,2), mar=c(4,3,1,1))
+plot_configs(A, B)
+p <- opa(A, B, model="SR")
+Ahat <- p$Xhat
+plot_configs(Ahat, B, add="'")
+@
+
+
+\subsection{Scaling, rotation and translation}
+
+The following code gives the transformation with all transformations. The results are shown in Figure \ref{fig:opa-SRT}.
+
+<<results='hide'>>=
+opa(A, B)
+@
+
+
+<<opa-SRT, echo=FALSE, fig.height=3.5, fig.cap="Scaling and rotation. Configurations (a) before (b) after transformation.", fig.lp="fig:">>=
+par(mfrow=c(1,2), mar=c(4,3,1,1))
+plot_configs(A, B)
+p <- opa(A, B, model="SRT")
+Ahat <- p$Xhat
+plot_configs(Ahat, B, add="'")
+@
+
+
+
+
+
+\section{Appendix}
+
+
+\section{Basic transformations}
+
+
+\subsection{Translation}
+
+\subsection{Appendix}
+
+The solutions to all subsets of parameters of the simple procrustes problem are listed below.
+They can easily be derived along the same lines as in \cite{schonemann_fitting_1970}
+
+\begin{tabular}{llll}
+\hline
+Model & \multicolumn{3}{c}{Parameters} \\
+\hline
+ & $\B{Q}$ & $c$  & $\gamma$ \\
+\cline{2-4}
+% S
+ $f(c)$ & 
+   - & 
+   $\frac{ tr\;\B{A}\T \B{B} }{ tr\; \B{A}\T \B{A} }$ & 
+   - \\[10pt]
+% R   
+ $f(\B{Q})$ & 
+   \pbox{20cm}{$\B{Q} = \B{UV}\T$ with \\ $\B{UDV}\T = \B{A}\T\B{B}$} & 
+   -  & 
+   - \\[10pt]
+% T
+  $f(\gamma)$ & 
+    - & 
+    -  & 
+    $(\B{B} - \B{A})\T \B{J} / p$ \\[10pt]
+% SR    
+  $f(c,\B{Q})$ & 
+    \pbox{20cm}{$\B{Q} = \B{UV}\T$ with \\ $\B{UDV}\T = \B{A}\T\B{B}$} & 
+    $\frac{ tr\; \B{Q}\T \B{A}\T \B{B} }{ tr\; \B{A}\T \B{A} }$ & 
+    - \\[10pt]
+% ST    
+  $f(c, \gamma)$ & 
+    - & 
+    $\frac{ tr\; \B{A}\T (\B{B} - \B{J}\gamma\T ) }{ tr\; \B{A}\T \B{A} }$ & 
+    $(\B{B} - \B{A})\T \B{J} / p$ \\[10pt]  
+% RT
+  $f(\B{Q}, \gamma)$ & 
+    \pbox{20cm}{$\B{Q} = \B{UV}\T$ with \\ $\B{UDV}\T = \B{A}\T(\B{I} - \B{JJ}\T / p)\B{B}$} & 
+    - & 
+    $(\B{B} - \B{AQ})\T \B{J} / p$ \\[10pt] 
+% SRT (full model)
+  $f(c, \B{Q}, \gamma)$   & 
+    \pbox{20cm}{$\B{Q} = \B{UV}\T$ with \\ $\B{UDV}\T = \B{A}\T(\B{I} - \B{JJ}\T / p)\B{B}$} & 
+    $\frac{ tr\;\B{Q}\T \B{A}\T (\B{I} - \B{JJ}\T / p) \B{B} }{ tr\; \B{A}\T (\B{I} - \B{JJ}\T / p) \B{A} }$ & 
+    $(\B{B} - c\B{AQ})\T \B{J} / p$ \\[10pt]  
+\hline
+\end{tabular}
+
+
+
+
+%\bibliographystyle{plain}
+\bibliography{literature}
+
+
+\end{document}

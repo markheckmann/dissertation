@@ -1,0 +1,12 @@
+Here technical changes are documented. See NEWS for a description of changes affecting the user.
+
+procrustes 0.0.9001 (opened 2014-11-03) 
+----------------------------------------------------------------
+
+  New features
+
+  * `harmonize_text_srt` adjusts text srt (rotation) to get readable directions
+  * `add_axes_labels` allows to place labels on axis at given
+    position with optimal text rotation
+
+
